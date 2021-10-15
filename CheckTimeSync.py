@@ -2,10 +2,6 @@
 
 import time
 import serial
-import struct
-import redis
-from influxdb import InfluxDBClient
-from signal import signal, SIGINT
 from datetime import datetime
 from datetime import timezone
 import socket
