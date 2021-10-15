@@ -15,7 +15,7 @@ import paramiko
 uart_port = '/dev/ttyUSB0'
 host_ip = '192.168.1.100'
 port = 60001
-wrs_ip = '192.168.1.254'
+wrs_ip = '10.0.1.36'
 
 """
 The code is for getting time from GPS Resceiver.
@@ -88,7 +88,7 @@ def GetGPSTime(port):
                     utc_time = primaryTimingPacket(data[2:dataSize-2])
             data = b''
             dataSize = 0
-    print('GPS Time:',utc_time)
+    print('GPS Time'.ljust(20, ' '),':',utc_time)
     ser.close()
 
 """
@@ -103,8 +103,8 @@ def GetQuaboTime(host_ip, port):
     t_host = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
     nanosec = (data[10]+data[11]*pow(2,8)+data[12]*pow(2,16)+data[13]*pow(2,24))
     t_quabo = t_host.split('.')[0]+'.'+str(nanosec)
-    print('Host Computer Time:',t_host)
-    print('Quabo Time:', t_quabo)
+    print('Host Computer Time'.ljust(20,' '),':',t_host)
+    print('Quabo Time'.ljust(20,' '),':',t_quabo)
 
 """
 The code is for getting time from WRS.
@@ -120,11 +120,19 @@ def GetWRSTime(wrs_ip):
     s=result_str.split(' ')
     d = s[3].split('\n')
     wrs_time = d[1] + ' ' +s[4]
-    print('WRS Time:',wrs_time)
+    print('WRS Time'.ljust(20, ' '),':',wrs_time)
     ssh.close()
     del(ssh,ssh_stdin, ssh_stdout, ssh_stderr)
 
 if __name__ == '__main__':
-    GetGPSTime(uart_port)
+    print('===============================================================')
+    print('Please make sure:')
+    print('1. The dev name of the GPS receiver is'.ljust(46,' '),uart_port)
+    print('2. The IP address of the host computer is'.ljust(46,' '),host_ip)
+    print('3. The port for quabo packets is'.ljust(46,' '),str(port))
+    print('4. The IP address of WRS is'.ljust(46,' '),wrs_ip)
+    print('===============================================================')
+    print('Time Checking Result :')
+    #GetGPSTime(uart_port)
     GetQuaboTime(host_ip, port)
     GetWRSTime(wrs_ip)
