@@ -110,8 +110,8 @@ def GetWRSTime(wrs_ip):
     ssh=paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(wrs_ip,username='root',password='')
-    t_host = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd)
+    t_host = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
     result=ssh_stdout.read()
     result_str=str(result, encoding = "utf-8")
     s=result_str.split(' ')
