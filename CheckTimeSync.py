@@ -88,7 +88,7 @@ def GetGPSTime(port):
                     utc_time = primaryTimingPacket(data[2:dataSize-2])
             data = b''
             dataSize = 0
-    print(utc_time)
+    print('GPS Time:',utc_time)
     ser.close()
 
 """
@@ -113,17 +113,17 @@ def GetWRSTime(wrs_ip):
     cmd = "/wr/bin/wr_date get"
     ssh=paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect('10.0.1.36',username='root',password='')
+    ssh.connect(wrs_ip,username='root',password='')
     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd)
     result=ssh_stdout.read()
     result_str=str(result, encoding = "utf-8")
     s=result_str.split(' ')
     d = s[3].split('\n')
     wrs_time = d[1] + ' ' +s[4]
-    print(wrs_time)
+    print('WRS Time:',wrs_time)
     ssh.close()
+    del(ssh,ssh_stdin, ssh_stdout, ssh_stderr)
 
-del(ssh,ssh_stdin, ssh_stdout, ssh_stderr)
 if __name__ == '__main__':
     GetGPSTime(uart_port)
     GetQuaboTime(host_ip, port)
