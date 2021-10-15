@@ -1,3 +1,5 @@
+#! /usr/bin/python
+
 import time
 import serial
 import struct
@@ -16,7 +18,7 @@ def primaryTimingPacket(data):
         print(data)
         print('Packet size is ', len(data))
         return
-
+    BYTEORDER = 'big'
     tvUTC = str(datetime.now(timezone.utc))
     
     timeofWeek = int.from_bytes(data[1:5], byteorder=BYTEORDER, signed=False)
@@ -40,7 +42,7 @@ def primaryTimingPacket(data):
     month = int.from_bytes(data[14:15], byteorder=BYTEORDER, signed=False)
     year = int.from_bytes(data[15:17], byteorder=BYTEORDER, signed=False)
     
-    lastTime = str(year)+'-'+str(month)+'-'+str(dayofMonth)+'T'+str(hours)+':'+str(minutes)+':'+str(seconds) + 'Z'
+    lastTime = str(year)+'-'+str(month)+'-'+str(dayofMonth)+' '+str(hours)+':'+str(minutes)+':'+str(seconds) + '.000'
     return lastTime
 
 def GetGPSTime(port):
@@ -78,5 +80,5 @@ def GetGPSTime(port):
     print(utc_time)
     ser.close()
 
-def __name__ == '__main__':
-    GetGPSTime()
+if __name__ == '__main__':
+    GetGPSTime(uart_port)
