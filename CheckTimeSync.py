@@ -8,9 +8,20 @@ from influxdb import InfluxDBClient
 from signal import signal, SIGINT
 from datetime import datetime
 from datetime import timezone
-
+import socket
+from datetime import datetime
+import paramiko
 
 uart_port = '/dev/ttyUSB0'
+host_ip = '192.168.1.100'
+port = 60001
+wrs_ip = '192.168.1.254'
+
+"""
+The code is for getting time from GPS Resceiver.
+The GPS receiver should be connected to the host computer via a USB port,
+which is shown as /dev/ttyUSBx.
+"""
 def primaryTimingPacket(data):
     # check the length of data
     if len(data) != 17:
@@ -80,5 +91,40 @@ def GetGPSTime(port):
     print(utc_time)
     ser.close()
 
+"""
+The code is for getting time from the host computer and quabo.
+"""
+def GetQuaboTime(host_ip, port):
+    BUFFERSIZE = 1024
+    IP_PORT = (host_ip,port)
+    server = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+    server.bind(IP_PORT)
+    data,client_addr = server.recvfrom(BUFFERSIZE)
+    t_host = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+    nanosec = (data[10]+data[11]*pow(2,8)+data[12]*pow(2,16)+data[13]*pow(2,24))
+    t_quabo = t_host.split('.')[0]+'.'+str(nanosec)
+    print('Host Computer Time:',t_host)
+    print('Quabo Time:', t_quabo)
+
+"""
+The code is for getting time from WRS.
+"""
+def GetWRSTime(wrs_ip):
+    cmd = "/wr/bin/wr_date get"
+    ssh=paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect('10.0.1.36',username='root',password='')
+    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd)
+    result=ssh_stdout.read()
+    result_str=str(result, encoding = "utf-8")
+    s=result_str.split(' ')
+    d = s[3].split('\n')
+    wrs_time = d[1] + ' ' +s[4]
+    print(wrs_time)
+    ssh.close()
+
+del(ssh,ssh_stdin, ssh_stdout, ssh_stderr)
 if __name__ == '__main__':
     GetGPSTime(uart_port)
+    GetQuaboTime(host_ip, port)
+    GetWRSTime(wrs_ip)
