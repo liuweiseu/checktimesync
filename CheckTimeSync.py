@@ -11,7 +11,7 @@ import paramiko
 uart_port = '/dev/ttyUSB0'
 host_ip = '192.168.1.100'
 port = 60001
-wrs_ip = '10.0.1.36'
+wrs_ip = '192.168.1.254'
 
 """
 The code is for getting time from GPS Resceiver.
@@ -126,9 +126,9 @@ if __name__ == '__main__':
     print('===============================================================')
     print('Time Checking Result(UTC TIME):')
     gps_time = GetGPSTime(uart_port)
-    print('GPS Time'.ljust(20, ' '),':',gps_time)
+    wrs_time = GetWRSTime(wrs_ip)
     t_host,t_quabo = GetQuaboTime(host_ip, port)
+    print('GPS Time'.ljust(20, ' '),':',gps_time)
+    print('WRS Time'.ljust(20, ' '),':',wrs_time)
     print('Host Computer Time'.ljust(20,' '),':',t_host)
     print('Quabo Time'.ljust(20,' '),':',t_quabo)
-    wrs_time = GetWRSTime(wrs_ip)
-    print('WRS Time'.ljust(20, ' '),':',wrs_time)
