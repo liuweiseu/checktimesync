@@ -21,9 +21,6 @@ which is shown as /dev/ttyUSBx.
 def primaryTimingPacket(data):
     # check the length of data
     if len(data) != 17:
-        print(RKEY, ' is malformed ignoring the following data packet')
-        print(data)
-        print('Packet size is ', len(data))
         return
     BYTEORDER = 'big'
     tvUTC = str(datetime.now(timezone.utc))
