@@ -74,8 +74,8 @@ def GetGPSTime(port):
     dataSize = 0
     bytesToRead = 0
     
-    utc_time = []
-    while utc_time==[] :
+    gps_time = []
+    while gps_time==[] :
         while bytesToRead == 0:
             bytesToRead = ser.inWaiting()
         data += ser.read(bytesToRead)
@@ -85,11 +85,11 @@ def GetGPSTime(port):
             if data[0:1] == b'\x10':
                 id = data[1:3]
                 if id == b'\x8f\xab':
-                    utc_time = primaryTimingPacket(data[2:dataSize-2])
+                    gps_time = primaryTimingPacket(data[2:dataSize-2])
             data = b''
             dataSize = 0
-    print('GPS Time'.ljust(20, ' '),':',utc_time)
     ser.close()
+    return gps_time
 
 """
 The code is for getting time from the host computer and quabo.
@@ -103,8 +103,7 @@ def GetQuaboTime(host_ip, port):
     t_host = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
     nanosec = (data[10]+data[11]*pow(2,8)+data[12]*pow(2,16)+data[13]*pow(2,24))
     t_quabo = t_host.split('.')[0]+'.'+str(nanosec)
-    print('Host Computer Time'.ljust(20,' '),':',t_host)
-    print('Quabo Time'.ljust(20,' '),':',t_quabo)
+    return t_host, t_quabo
 
 """
 The code is for getting time from WRS.
@@ -120,9 +119,9 @@ def GetWRSTime(wrs_ip):
     s=result_str.split(' ')
     d = s[3].split('\n')
     wrs_time = d[1] + ' ' +s[4]
-    print('WRS Time'.ljust(20, ' '),':',wrs_time)
     ssh.close()
     del(ssh,ssh_stdin, ssh_stdout, ssh_stderr)
+    return wrs_time
 
 if __name__ == '__main__':
     print('===============================================================')
@@ -132,7 +131,11 @@ if __name__ == '__main__':
     print('3. The port for quabo packets is'.ljust(46,' '),str(port))
     print('4. The IP address of WRS is'.ljust(46,' '),wrs_ip)
     print('===============================================================')
-    print('Time Checking Result :')
-    #GetGPSTime(uart_port)
-    GetQuaboTime(host_ip, port)
-    GetWRSTime(wrs_ip)
+    print('Time Checking Result(UTC TIME):')
+    gps_time = GetGPSTime(uart_port)
+    print('GPS Time'.ljust(20, ' '),':',gps_time)
+    t_host,t_quabo = GetQuaboTime(host_ip, port)
+    print('Host Computer Time'.ljust(20,' '),':',t_host)
+    print('Quabo Time'.ljust(20,' '),':',t_quabo)
+    wrs_time = GetWRSTime(wrs_ip)
+    print('WRS Time'.ljust(20, ' '),':',wrs_time)
