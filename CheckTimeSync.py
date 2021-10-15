@@ -66,22 +66,25 @@ def GetGPSTime(port):
     data = b''
     dataSize = 0
     bytesToRead = 0
-    
+    timestamp = False
     gps_time = []
     while gps_time==[] :
         while bytesToRead == 0:
             bytesToRead = ser.inWaiting()
+        while timestamp == False:
+            t_host = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+            timestamp = True
         data += ser.read(bytesToRead)
         dataSize += bytesToRead
 
         if data[dataSize-1:dataSize] == b'\x03' and data[dataSize-2:dataSize-1] == b'\x10':
-            t_host = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
             if data[0:1] == b'\x10':
                 id = data[1:3]
                 if id == b'\x8f\xab':
                     gps_time = primaryTimingPacket(data[2:dataSize-2])
             data = b''
             dataSize = 0
+            timestamp = False
     ser.close()
     return gps_time, t_host
 
