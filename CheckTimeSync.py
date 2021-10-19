@@ -68,23 +68,23 @@ def GetGPSTime(port):
     bytesToRead = 0
     timestamp = False
     gps_time = []
-    while gps_time==[] :
-        while bytesToRead == 0:
-            bytesToRead = ser.inWaiting()
-        while timestamp == False:
-            t_host = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-            timestamp = True
-        data += ser.read(bytesToRead)
-        dataSize += bytesToRead
 
-        if data[dataSize-1:dataSize] == b'\x03' and data[dataSize-2:dataSize-1] == b'\x10':
-            if data[0:1] == b'\x10':
-                id = data[1:3]
-                if id == b'\x8f\xab':
-                    gps_time = primaryTimingPacket(data[2:dataSize-2])
-            data = b''
-            dataSize = 0
-            timestamp = False
+    while bytesToRead == 0:
+        bytesToRead = ser.inWaiting()
+    if timestamp == False:
+        t_host = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+        timestamp = True
+    data += ser.read(bytesToRead)
+    dataSize += bytesToRead
+
+    if data[dataSize-1:dataSize] == b'\x03' and data[dataSize-2:dataSize-1] == b'\x10':
+        if data[0:1] == b'\x10':
+            id = data[1:3]
+            if id == b'\x8f\xab':
+                gps_time = primaryTimingPacket(data[2:dataSize-2])
+        data = b''
+        dataSize = 0
+        timestamp = False
     ser.close()
     return gps_time, t_host
 
@@ -106,20 +106,30 @@ def GetQuaboTime(host_ip, port):
 The code is for getting time from WRS.
 """
 def GetWRSTime(wrs_ip):
-    cmd = "/wr/bin/wr_date get"
+    cmd0 = "/wr/bin/wr_date get"
+    cmd1 = "date +'%T.%9N'"
+    t_current = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
     ssh=paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(wrs_ip,username='root',password='')
-    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd)
-    t_host = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-    result=ssh_stdout.read()
-    result_str=str(result, encoding = "utf-8")
-    s=result_str.split(' ')
+    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd0)
+    result0=ssh_stdout.read()
+    t_host0 = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+
+    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd1)
+    result1=ssh_stdout.read()
+    t_host1 = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+    
+    result0_str=str(result0, encoding = "utf-8")
+    s=result0_str.split(' ')
     d = s[3].split('\n')
     wrs_time = d[1] + ' ' +s[4]
+    sys_time = str(result1, encoding = "utf-8")
+    sys_time = sys_time.rstrip('\n')
+    sys_time = d[1] + ' ' + sys_time
     ssh.close()
     del(ssh,ssh_stdin, ssh_stdout, ssh_stderr)
-    return wrs_time, t_host
+    return wrs_time, sys_time, t_host0, t_host1, t_current
 
 if __name__ == '__main__':
     print('===============================================================')
@@ -131,11 +141,15 @@ if __name__ == '__main__':
     print('===============================================================')
     print('Time Checking Result(UTC TIME):')
     gps_time,t_host = GetGPSTime(uart_port)
-    wrs_time, t_host0 = GetWRSTime(wrs_ip)
     t_quabo, t_host1 = GetQuaboTime(host_ip, port)
+    wrs_time, sys_time,t_host00, t_host01, t_current = GetWRSTime(wrs_ip)
+    #t_quabo, t_host1 = GetQuaboTime(host_ip, port)
     print('GPS Time'.ljust(20, ' '),':',gps_time)
-    print('WRS Time'.ljust(20, ' '),':',wrs_time)
     print('Quabo Time'.ljust(20,' '),':',t_quabo)
+    print('WRS Time'.ljust(20, ' '),':',wrs_time)
+    print('WRS Sys Time'.ljust(20, ' '),':',sys_time)
     print('GPS Timestamp'.ljust(20,' '),':',t_host)
-    print('WRS Timestamp'.ljust(20,' '),':',t_host0)
     print('Quabo Timestamp'.ljust(20,' '),':',t_host1)
+    #print('Before ssh Timestamp'.ljust(20,' '),':',t_current)
+    print('WRS Timestamp'.ljust(20,' '),':',t_host00)
+    print('WRS Sys Timestamp'.ljust(20,' '),':',t_host01)
