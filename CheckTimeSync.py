@@ -105,13 +105,16 @@ def GetQuaboTime(host_ip, port):
 """
 The code is for getting time from WRS.
 """
-def GetWRSTime(wrs_ip):
-    cmd0 = "/wr/bin/wr_date get"
-    cmd1 = "date +'%T.%9N'"
-    t_current = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+def SSH_Init(wrs_ip):
     ssh=paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(wrs_ip,username='root',password='')
+    return ssh
+
+def GetWRSTime(ssh):
+    cmd0 = "/wr/bin/wr_date get"
+    cmd1 = "date +'%T.%9N'"
+    t_current = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd0)
     result0=ssh_stdout.read()
     t_host0 = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
@@ -140,9 +143,10 @@ if __name__ == '__main__':
     print('4. The IP address of WRS is'.ljust(46,' '),wrs_ip)
     print('===============================================================')
     print('Time Checking Result(UTC TIME):')
+    ssh = SSH_Init(wrs_ip)
     gps_time,t_host = GetGPSTime(uart_port)
     t_quabo, t_host1 = GetQuaboTime(host_ip, port)
-    wrs_time, sys_time,t_host00, t_host01, t_current = GetWRSTime(wrs_ip)
+    wrs_time, sys_time,t_host00, t_host01, t_current = GetWRSTime(ssh)
     #t_quabo, t_host1 = GetQuaboTime(host_ip, port)
     print('GPS Time'.ljust(20, ' '),':',gps_time)
     print('Quabo Time'.ljust(20,' '),':',t_quabo)
