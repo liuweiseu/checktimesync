@@ -98,8 +98,10 @@ def GetQuaboTime(host_ip, port):
     server.bind(IP_PORT)
     data,client_addr = server.recvfrom(BUFFERSIZE)
     t_host = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+    print(data[10],data[11],data[12],data[13])
     nanosec = (data[10]+data[11]*pow(2,8)+data[12]*pow(2,16)+data[13]*pow(2,24))
-    t_quabo = t_host.split('.')[0]+'.'+str(nanosec)
+    t_quabo = t_host.split('.')[0]+'.'+str(nanosec).rjust(9,'0')
+    server.close()
     return t_quabo, t_host
 
 """
