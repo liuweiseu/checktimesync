@@ -1,6 +1,7 @@
 from cmath import nan
 from grain import Grain
 from datetime import datetime
+from datetime import timedelta
 import socket
 
 EPOCH = datetime(1970,1,1)
@@ -37,5 +38,10 @@ elif(host_tai_10bits == 1 and wr_tai_10bits == 0):
 else:
     tai_time = host_tai
 
-# add the nanosec
-tai_time = tai_time + nanosec
+#convert precise tai time back to utc time
+utc_time = g.tai2utc(tai_time,epoch=EPOCH)
+#covert utc time to local time. The time offset is -8 in CA
+local_time = utc_time + timedelta(hours = -8)
+# add the nanosec, and covert the time to str
+t = local_time.strftime('%Y-%m-%d %H:%M:%S.%f')[:-6].split('.')[0] + str(nanosec).rjust(9,'0')
+print(t)
