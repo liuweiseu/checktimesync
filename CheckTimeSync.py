@@ -100,7 +100,7 @@ def GetQuaboTime(host_ip, port):
     data,client_addr = server.recvfrom(BUFFERSIZE)
     server.close()
     t_host = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-    nanosec = (data[10]+data[11]*pow(2,8)+data[12]*pow(2,16)+data[13]*pow(2,24))
+    nanosec = data[10]+data[11]*pow(2,8)+data[12]*pow(2,16)+data[13]
     wr_tai = data[6]+data[7]*pow(2,8)+data[8]*pow(2,16)+data[9]*pow(2,24)
     t_quabo = t_host.split('.')[0]+'.'+str(nanosec).rjust(9,'0')
     wr_tai_10bits = wr_tai & 0x3ff
@@ -119,13 +119,15 @@ def GetQuaboTime(host_ip, port):
         tai_time = host_tai + 1
     elif(host_tai_10bits == 1 and wr_tai_10bits == 0):
         tai_time = host_tai - 1
+    elif(wr_tai_10bits != host_tai_10bits):
+        tai_time = host_tai + wr_tai_10bits - host_tai_10bits
     else:
         tai_time = host_tai
     # convert the precise tai time back to utc time
     utc_time = g.tai2utc(tai_time, epoch=EPOCH)
     # convert utc time to local time, the offset is -8 housrs in CA
     local_time = utc_time + timedelta(hours=-8)
-    t_quabo = local_time.strftime('%Y-%m-%d %H:%M:%S.%f')[:-6].split('.')[0] + str(nanosec).rjust(9,'0')
+    t_quabo = local_time.strftime('%Y-%m-%d %H:%M:%S.%f')[:-7] + '.' + str(nanosec).rjust(9,'0')
     return t_quabo, t_host
 
 """
