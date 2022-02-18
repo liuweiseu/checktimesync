@@ -222,10 +222,10 @@ def initialize():
     ser = serial.Serial(
         port='/dev/ttyUSB5',
         baudrate=9600,
-        timeout=1,
+        timeout=0.5,
         parity=serial.PARITY_NONE,
         stopbits=serial.STOPBITS_ONE,
-        bytesize=serial.EIGHTBITS
+        bytesize=serial.EIGHTBITS,
     )
     ser.isOpen()
 
@@ -240,12 +240,20 @@ def main():
     ser, r = initialize()
 
     print('Running')
+    while bytesToRead == 0:
+        bytesToRead = ser.inWaiting()
+    time.sleep(0.2)
     while True:
-        while bytesToRead == 0:
-            bytesToRead = ser.inWaiting()
-        data += ser.read(bytesToRead)
+        #while bytesToRead == 0:
+        #    bytesToRead = ser.inWaiting()
+        #data += ser.read(bytesToRead)
+        data = ser.read(100)
+        print(len(data))
+        print(data)
         #ser.flushInput()
-        dataSize += bytesToRead
+        #dataSize += bytesToRead
+        '''
+        dataSize = len(data)
         bytesToRead = 0
         if data[dataSize-1:dataSize] == b'\x03' and data[dataSize-2:dataSize-1] == b'\x10':
             if data[0:1] == b'\x10':
@@ -257,9 +265,9 @@ def main():
                 else:
                     print(data[1:dataSize-2])
                     print(len(data[2:dataSize-2]))
-            
+          
             data = b''
             dataSize = 0
-
+        '''
 if __name__ == "__main__":
     main()
