@@ -9,7 +9,7 @@ import socket
 import paramiko
 from grain import Grain
 
-uart_port = '/dev/ttyUSB0'
+uart_port = '/dev/ttyUSB5'
 host_ip = '192.168.1.100'
 port = 60001
 wrs_ip = '10.0.1.36'
@@ -21,7 +21,9 @@ which is shown as /dev/ttyUSBx.
 """
 def primaryTimingPacket(data):
     # check the length of data
+    print(len(data))
     if len(data) != 17:
+        print(data)
         return
     BYTEORDER = 'big'
     tvUTC = str(datetime.now(timezone.utc))
@@ -77,7 +79,8 @@ def GetGPSTime(port):
         timestamp = True
     data += ser.read(bytesToRead)
     dataSize += bytesToRead
-
+   
+    print(dataSize)
     if data[dataSize-1:dataSize] == b'\x03' and data[dataSize-2:dataSize-1] == b'\x10':
         if data[0:1] == b'\x10':
             id = data[1:3]
