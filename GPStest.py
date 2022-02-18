@@ -220,7 +220,7 @@ def initialize():
 
     # configure the serial connections (the parameters differs on the device you are connecting to)
     ser = serial.Serial(
-        port='/dev/ttyUSB5',
+        port='/dev/ttyUSB0',
         baudrate=9600,
         timeout=0.5,
         parity=serial.PARITY_NONE,
@@ -243,14 +243,21 @@ def main():
     while bytesToRead == 0:
         bytesToRead = ser.inWaiting()
     time.sleep(0.2)
+    ser.flushInput()
     while True:
         #while bytesToRead == 0:
         #    bytesToRead = ser.inWaiting()
         #data += ser.read(bytesToRead)
         data = ser.read(100)
-        print(len(data))
+        if(len(data)==0):
+            continue
+        if(len(data)!=93):
+            print('%d--error'%len(data))
+        else:
+            print(len(data))
         print(data)
-        #ser.flushInput()
+        #print(data)
+        ser.flushInput()
         #dataSize += bytesToRead
         '''
         dataSize = len(data)
