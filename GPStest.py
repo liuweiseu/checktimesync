@@ -231,7 +231,6 @@ def initialize():
 
     return ser, r
 
-
 def main():
     data = b''
     dataSize = 0

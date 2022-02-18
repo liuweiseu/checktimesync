@@ -247,6 +247,8 @@ def main():
             bytesToRead = ser.inWaiting()
         # as I tested, bytesToRead is always 1.
         # If it's not 1, the algorithm here will not work
+        if(bytesToRead!=1):
+            print(bytesToRead)
         recv_byte = ser.read(bytesToRead)
         if(recv_byte == 0x10 and last_recv_byte == 0x10):
             pass
