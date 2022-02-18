@@ -222,10 +222,10 @@ def initialize():
     ser = serial.Serial(
         port='/dev/ttyUSB5',
         baudrate=9600,
-        timeout=0.5,
+        timeout=1,
         parity=serial.PARITY_NONE,
         stopbits=serial.STOPBITS_ONE,
-        bytesize=serial.EIGHTBITS,
+        bytesize=serial.EIGHTBITS
     )
     ser.isOpen()
 
@@ -236,31 +236,25 @@ def main():
     data = b''
     dataSize = 0
     bytesToRead = 0
+    recv_byte = 0
+    last_recv_byte = 0
 
     ser, r = initialize()
 
     print('Running')
-    while bytesToRead == 0:
-        bytesToRead = ser.inWaiting()
-    time.sleep(0.2)
-    ser.flushInput()
     while True:
-        #while bytesToRead == 0:
-        #    bytesToRead = ser.inWaiting()
-        #data += ser.read(bytesToRead)
-        data = ser.read(100)
-        if(len(data)==0):
-            continue
-        if(len(data)!=93):
-            print('%d--error'%len(data))
+        while bytesToRead == 0:
+            bytesToRead = ser.inWaiting()
+        # as I tested, bytesToRead is always 1.
+        # If it's not 1, the algorithm here will not work
+        recv_byte = ser.read(bytesToRead)
+        if(recv_byte == 0x10 and last_recv_byte == 0x10):
+            pass
         else:
-            print(len(data))
-        print(data)
-        #print(data)
-        ser.flushInput()
-        #dataSize += bytesToRead
-        '''
-        dataSize = len(data)
+            #data += ser.read(bytesToRead)
+            data += recv_byte
+            dataSize += bytesToRead
+        last_recv_byte = recv_byte
         bytesToRead = 0
         if data[dataSize-1:dataSize] == b'\x03' and data[dataSize-2:dataSize-1] == b'\x10':
             if data[0:1] == b'\x10':
@@ -272,9 +266,9 @@ def main():
                 else:
                     print(data[1:dataSize-2])
                     print(len(data[2:dataSize-2]))
-          
+            
             data = b''
             dataSize = 0
-        '''
+
 if __name__ == "__main__":
     main()
