@@ -100,13 +100,14 @@ def GetQuaboTime(host_ip, port):
     server.bind(IP_PORT)
     data,client_addr = server.recvfrom(BUFFERSIZE)
     server.close()
+
     t_host = time.time()
     nanosec = struct.unpack("<I", data[10:14])
     wr_tai = struct.unpack("<I", data[6:10])
     wr_tai_10bits = wr_tai[0] & 0x3ff
     #covert utc to tai
     host_tai = time.time() + leap_sec
-    #get the last 10 bits
+    #covert tai back to utc
     t_quabo = (int(host_tai) & 0xFFFFFFFFFFFFFC00) + wr_tai_10bits + nanosec[0]/1000000000 -leap_sec
     
     return t_quabo, t_host
@@ -123,13 +124,10 @@ def SSH_Init(wrs_ip):
 def GetWRSTime(ssh):
     cmd0 = "/wr/bin/wr_date get"
     #cmd1 = "date +'%T.%9N'"
-    #t_current = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+
     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd0)
     r0=ssh_stdout.read()
     t_host = time.time()
-
-    #ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd1)
-    #result1=ssh_stdout.read()
     
     r0_str=str(r0, encoding = "utf-8")
     s=r0_str.split(' ')
