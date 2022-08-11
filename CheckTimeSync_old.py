@@ -8,14 +8,12 @@ from datetime import timedelta
 import socket
 import paramiko
 from grain import Grain
-import pytz
 
 uart_port = '/dev/ttyUSB0'
 host_ip = '192.168.1.100'
 port = 60001
-wrs_ip = '192.168.1.254'
+wrs_ip = '10.0.1.36'
 
-leap_sec = 37
 """
 The code is for getting time from GPS Resceiver.
 The GPS receiver should be connected to the host computer via a USB port,
@@ -26,6 +24,21 @@ def primaryTimingPacket(data):
     if len(data) != 17:
         return
     BYTEORDER = 'big'
+    tvUTC = str(datetime.now(timezone.utc))
+    
+    timeofWeek = int.from_bytes(data[1:5], byteorder=BYTEORDER, signed=False)
+    
+    weekNumber = int.from_bytes(data[5:7], byteorder=BYTEORDER, signed=False)
+    
+    UTCOffset = int.from_bytes(data[7:9], byteorder=BYTEORDER, signed=True)
+    
+    timingFlag = int.from_bytes(data[9:10], byteorder=BYTEORDER, signed=False)
+
+    time = timingFlag & 0x01
+    PPS = (timingFlag & 0x02) >> 1
+    timeSet = (timingFlag & 0x04) >> 2
+    UTCinfo = (timingFlag & 0x08) >> 3
+    timeFrom = (timingFlag & 0x10) >> 4
     
     seconds = int.from_bytes(data[10:11], byteorder=BYTEORDER, signed=False)
     minutes = int.from_bytes(data[11:12], byteorder=BYTEORDER, signed=False)
@@ -34,12 +47,8 @@ def primaryTimingPacket(data):
     month = int.from_bytes(data[14:15], byteorder=BYTEORDER, signed=False)
     year = int.from_bytes(data[15:17], byteorder=BYTEORDER, signed=False)
     
-    lastTime_str = str(year)+'-'+str(month)+'-'+str(dayofMonth)+' '+str(hours)+':'+str(minutes)+':'+str(seconds) + '.000'
-    print(lastTime_str)
-    # there is no nanosec info from GPS receiver, so nanosec value is set to 0 here
-    utc_tz = pytz.timezone('UTC')
-    lastTime = datetime(year, month, dayofMonth, hours, minutes, seconds, 0, tz=utc_tz)
-    return lastTime.timestamp()
+    lastTime = str(year)+'-'+str(month)+'-'+str(dayofMonth)+' '+str(hours)+':'+str(minutes)+':'+str(seconds) + '.000'
+    return lastTime
 
 def GetGPSTime(port):
 # configure the serial connections (the parameters differs on the device you are connecting to)
@@ -60,34 +69,23 @@ def GetGPSTime(port):
     bytesToRead = 0
     timestamp = False
     gps_time = []
-    recv_byte = 0
-    last_recv_byte = 0
-    recv_state = True
 
-    while(recv_state):
-        while bytesToRead == 0:
-            bytesToRead = ser.inWaiting()
-        recv_byte = ser.read(bytesToRead)
-        if(recv_byte == b'\x10' and last_recv_byte == b'\x10'):
-            pass
-        else:
-            if(timestamp == False):
-                t_host = time.time()
-                timestamp = True
-            data += recv_byte
-            dataSize += bytesToRead
-        last_recv_byte = recv_byte
-        bytesToRead = 0
+    while bytesToRead == 0:
+        bytesToRead = ser.inWaiting()
+    if timestamp == False:
+        t_host = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+        timestamp = True
+    data += ser.read(bytesToRead)
+    dataSize += bytesToRead
 
-        if data[dataSize-1:dataSize] == b'\x03' and data[dataSize-2:dataSize-1] == b'\x10':
-            if data[0:1] == b'\x10':
-                id = data[1:3]
-                if id == b'\x8f\xab':
-                    gps_time = primaryTimingPacket(data[2:dataSize-2])
-            data = b''
-            dataSize = 0
-            timestamp = False
-            recv_state = False
+    if data[dataSize-1:dataSize] == b'\x03' and data[dataSize-2:dataSize-1] == b'\x10':
+        if data[0:1] == b'\x10':
+            id = data[1:3]
+            if id == b'\x8f\xab':
+                gps_time = primaryTimingPacket(data[2:dataSize-2])
+        data = b''
+        dataSize = 0
+        timestamp = False
     ser.close()
     return gps_time, t_host
 
@@ -112,7 +110,19 @@ def GetQuaboTime(host_ip, port):
     now = datetime.utcnow()
     host_tai = g.utc2tai(now,EPOCH)
     #get the last 10 bits
-    host_tai_10bits = (host_tai & 0xFFFFFFFFFFFFFC00) + wr_tai_10bits
+    host_tai_10bits = host_tai & 0x3ff
+    if(host_tai_10bits ==0 and wr_tai_10bits == 1023):
+        tai_time = host_tai - 1
+    elif(host_tai_10bits == 0 and wr_tai_10bits == 1):
+        tai_time = host_tai + 1
+    elif(host_tai_10bits == 1023 and wr_tai_10bits == 0):
+        tai_time = host_tai + 1
+    elif(host_tai_10bits == 1 and wr_tai_10bits == 0):
+        tai_time = host_tai - 1
+    elif(wr_tai_10bits != host_tai_10bits):
+        tai_time = host_tai + wr_tai_10bits - host_tai_10bits
+    else:
+        tai_time = host_tai
     # convert the precise tai time back to utc time
     utc_time = g.tai2utc(tai_time, epoch=EPOCH)
     # convert utc time to local time, the offset is -8 housrs in CA
@@ -131,21 +141,26 @@ def SSH_Init(wrs_ip):
 
 def GetWRSTime(ssh):
     cmd0 = "/wr/bin/wr_date get"
-    #cmd1 = "date +'%T.%9N'"
-    #t_current = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-    t_host = time.time()
+    cmd1 = "date +'%T.%9N'"
+    t_current = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd0)
-    r0=ssh_stdout.read()
+    result0=ssh_stdout.read()
+    t_host0 = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
 
-    #ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd1)
-    #result1=ssh_stdout.read()
+    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd1)
+    result1=ssh_stdout.read()
+    t_host1 = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
     
-    r0_str=str(r0, encoding = "utf-8")
-    s=r0_str.split(' ')
-    wrs_time = float(s[0]) - leap_sec
+    result0_str=str(result0, encoding = "utf-8")
+    s=result0_str.split(' ')
+    d = s[3].split('\n')
+    wrs_time = d[1] + ' ' +s[4]
+    sys_time = str(result1, encoding = "utf-8")
+    sys_time = sys_time.rstrip('\n')
+    sys_time = d[1] + ' ' + sys_time
     ssh.close()
     del(ssh,ssh_stdin, ssh_stdout, ssh_stderr)
-    return wrs_time, t_host
+    return wrs_time, sys_time, t_host0, t_host1, t_current
 
 if __name__ == '__main__':
     print('===============================================================')
@@ -158,10 +173,8 @@ if __name__ == '__main__':
     print('Time Checking Result(UTC TIME):')
     ssh = SSH_Init(wrs_ip)
     gps_time,t_host = GetGPSTime(uart_port)
-    #t_quabo, t_host1 = GetQuaboTime(host_ip, port)
-    t_quabo = 0
-    t_host1 = 0
-    wrs_time, t_host00 = GetWRSTime(ssh)
+    t_quabo, t_host1 = GetQuaboTime(host_ip, port)
+    wrs_time, sys_time,t_host00, t_host01, t_current = GetWRSTime(ssh)
     #t_quabo, t_host1 = GetQuaboTime(host_ip, port)
     print('GPS Time'.ljust(20, ' '),':',gps_time)
     print('GPS Timestamp'.ljust(20,' '),':',t_host,'\n')
@@ -169,4 +182,5 @@ if __name__ == '__main__':
     print('Quabo Timestamp'.ljust(20,' '),':',t_host1,'\n')
     print('WRS Time'.ljust(20, ' '),':',wrs_time)
     print('WRS Timestamp'.ljust(20,' '),':',t_host00,'\n')
-
+    print('WRS Sys Time'.ljust(20, ' '),':',sys_time)
+    print('WRS Sys Timestamp'.ljust(20,' '),':',t_host01)
