@@ -2,21 +2,21 @@
 
 import time
 import serial
-from datetime import datetime
-from datetime import timezone
-from datetime import timedelta
+from datetime import datetime, timezone, timedelta
 import socket
 import paramiko
 from grain import Grain
 import pytz
+import struct
 
 uart_port = '/dev/ttyUSB0'
 host_ip = '192.168.1.100'
 port = 60001
 wrs_ip = '192.168.1.254'
 
+# this is the offset time between tai and utc
 leap_sec = 37
-gps_hour = 7
+# this is the offset time between gps and utc
 gps_sec  = 18
 """
 The code is for getting time from GPS Resceiver.
@@ -28,18 +28,15 @@ def primaryTimingPacket(data):
     if len(data) != 17:
         return
     BYTEORDER = 'big'
-    
+    # get time info from the data packet
     seconds = int.from_bytes(data[10:11], byteorder=BYTEORDER, signed=False)
     minutes = int.from_bytes(data[11:12], byteorder=BYTEORDER, signed=False)
     hours = int.from_bytes(data[12:13], byteorder=BYTEORDER, signed=False)
     dayofMonth = int.from_bytes(data[13:14], byteorder=BYTEORDER, signed=False)
     month = int.from_bytes(data[14:15], byteorder=BYTEORDER, signed=False)
     year = int.from_bytes(data[15:17], byteorder=BYTEORDER, signed=False)
-    
-    lastTime_str = str(year)+'-'+str(month)+'-'+str(dayofMonth)+' '+str(hours)+':'+str(minutes)+':'+str(seconds) + '.000'
-    print(lastTime_str)
     # there is no nanosec info from GPS receiver, so nanosec value is set to 0 here
-    lastTime = datetime(year, month, dayofMonth, hours, minutes, seconds, 0)-timedelta(hours=gps_hour)
+    lastTime = datetime(year, month, dayofMonth, hours, minutes, seconds, 0).replace(tzinfo=timezone.utc)
     return lastTime.timestamp() - gps_sec
 
 def GetGPSTime(port):
@@ -103,23 +100,15 @@ def GetQuaboTime(host_ip, port):
     server.bind(IP_PORT)
     data,client_addr = server.recvfrom(BUFFERSIZE)
     server.close()
-    t_host = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-    nanosec = data[10]+data[11]*pow(2,8)+data[12]*pow(2,16)+data[13]
-    wr_tai = data[6]+data[7]*pow(2,8)+data[8]*pow(2,16)+data[9]*pow(2,24)
-    t_quabo = t_host.split('.')[0]+'.'+str(nanosec).rjust(9,'0')
-    wr_tai_10bits = wr_tai & 0x3ff
+    t_host = time.time()
+    nanosec = struct.unpack("<I", data[10:14])
+    wr_tai = struct.unpack("<I", data[6:10])
+    wr_tai_10bits = wr_tai[0] & 0x3ff
     #covert utc to tai
-    EPOCH = datetime(1970,1,1)
-    g = Grain()
-    now = datetime.utcnow()
-    host_tai = g.utc2tai(now,EPOCH)
+    host_tai = time.time() + leap_sec
     #get the last 10 bits
-    host_tai_10bits = (host_tai & 0xFFFFFFFFFFFFFC00) + wr_tai_10bits
-    # convert the precise tai time back to utc time
-    utc_time = g.tai2utc(tai_time, epoch=EPOCH)
-    # convert utc time to local time, the offset is -8 housrs in CA
-    local_time = utc_time + timedelta(hours=-8)
-    t_quabo = local_time.strftime('%Y-%m-%d %H:%M:%S.%f')[:-7] + '.' + str(nanosec).rjust(9,'0')
+    t_quabo = (int(host_tai) & 0xFFFFFFFFFFFFFC00) + wr_tai_10bits + nanosec[0]/1000000000 -leap_sec
+    
     return t_quabo, t_host
 
 """
@@ -164,7 +153,7 @@ if __name__ == '__main__':
     t_quabo = 0
     t_host1 = 0
     wrs_time, t_host00 = GetWRSTime(ssh)
-    #t_quabo, t_host1 = GetQuaboTime(host_ip, port)
+    t_quabo, t_host1 = GetQuaboTime(host_ip, port)
     print('GPS Time'.ljust(20, ' '),':',gps_time)
     print('GPS Timestamp'.ljust(20,' '),':',t_host,'\n')
     print('Quabo Time'.ljust(20,' '),':',t_quabo)
