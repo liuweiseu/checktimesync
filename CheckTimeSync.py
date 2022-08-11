@@ -10,7 +10,7 @@ import paramiko
 from grain import Grain
 import pytz
 
-uart_port = '/dev/ttyUSB0'
+uart_port = '/dev/ttyUSB5'
 host_ip = '192.168.1.100'
 port = 60001
 wrs_ip = '192.168.1.254'
@@ -23,7 +23,9 @@ which is shown as /dev/ttyUSBx.
 """
 def primaryTimingPacket(data):
     # check the length of data
+    print(len(data))
     if len(data) != 17:
+        print(data)
         return
     BYTEORDER = 'big'
     
@@ -64,6 +66,7 @@ def GetGPSTime(port):
     last_recv_byte = 0
     recv_state = True
 
+<<<<<<< HEAD
     while(recv_state):
         while bytesToRead == 0:
             bytesToRead = ser.inWaiting()
@@ -88,6 +91,25 @@ def GetGPSTime(port):
             dataSize = 0
             timestamp = False
             recv_state = False
+=======
+    while bytesToRead == 0:
+        bytesToRead = ser.inWaiting()
+    if timestamp == False:
+        t_host = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+        timestamp = True
+    data += ser.read(bytesToRead)
+    dataSize += bytesToRead
+   
+    print(dataSize)
+    if data[dataSize-1:dataSize] == b'\x03' and data[dataSize-2:dataSize-1] == b'\x10':
+        if data[0:1] == b'\x10':
+            id = data[1:3]
+            if id == b'\x8f\xab':
+                gps_time = primaryTimingPacket(data[2:dataSize-2])
+        data = b''
+        dataSize = 0
+        timestamp = False
+>>>>>>> 95d4a18ddf14bb8c05c8c759737a695d4edbda04
     ser.close()
     return gps_time, t_host
 
