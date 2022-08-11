@@ -10,12 +10,14 @@ import paramiko
 from grain import Grain
 import pytz
 
-uart_port = '/dev/ttyUSB5'
+uart_port = '/dev/ttyUSB0'
 host_ip = '192.168.1.100'
 port = 60001
 wrs_ip = '192.168.1.254'
 
 leap_sec = 37
+gps_hour = 7
+gps_sec  = 18
 """
 The code is for getting time from GPS Resceiver.
 The GPS receiver should be connected to the host computer via a USB port,
@@ -23,9 +25,7 @@ which is shown as /dev/ttyUSBx.
 """
 def primaryTimingPacket(data):
     # check the length of data
-    print(len(data))
     if len(data) != 17:
-        print(data)
         return
     BYTEORDER = 'big'
     
@@ -39,9 +39,8 @@ def primaryTimingPacket(data):
     lastTime_str = str(year)+'-'+str(month)+'-'+str(dayofMonth)+' '+str(hours)+':'+str(minutes)+':'+str(seconds) + '.000'
     print(lastTime_str)
     # there is no nanosec info from GPS receiver, so nanosec value is set to 0 here
-    utc_tz = pytz.timezone('UTC')
-    lastTime = datetime(year, month, dayofMonth, hours, minutes, seconds, 0, tz=utc_tz)
-    return lastTime.timestamp()
+    lastTime = datetime(year, month, dayofMonth, hours, minutes, seconds, 0)-timedelta(hours=gps_hour)
+    return lastTime.timestamp() - gps_sec
 
 def GetGPSTime(port):
 # configure the serial connections (the parameters differs on the device you are connecting to)
@@ -66,7 +65,6 @@ def GetGPSTime(port):
     last_recv_byte = 0
     recv_state = True
 
-<<<<<<< HEAD
     while(recv_state):
         while bytesToRead == 0:
             bytesToRead = ser.inWaiting()
@@ -91,25 +89,7 @@ def GetGPSTime(port):
             dataSize = 0
             timestamp = False
             recv_state = False
-=======
-    while bytesToRead == 0:
-        bytesToRead = ser.inWaiting()
-    if timestamp == False:
-        t_host = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-        timestamp = True
-    data += ser.read(bytesToRead)
-    dataSize += bytesToRead
-   
-    print(dataSize)
-    if data[dataSize-1:dataSize] == b'\x03' and data[dataSize-2:dataSize-1] == b'\x10':
-        if data[0:1] == b'\x10':
-            id = data[1:3]
-            if id == b'\x8f\xab':
-                gps_time = primaryTimingPacket(data[2:dataSize-2])
-        data = b''
-        dataSize = 0
-        timestamp = False
->>>>>>> 95d4a18ddf14bb8c05c8c759737a695d4edbda04
+
     ser.close()
     return gps_time, t_host
 
@@ -155,9 +135,9 @@ def GetWRSTime(ssh):
     cmd0 = "/wr/bin/wr_date get"
     #cmd1 = "date +'%T.%9N'"
     #t_current = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-    t_host = time.time()
     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd0)
     r0=ssh_stdout.read()
+    t_host = time.time()
 
     #ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd1)
     #result1=ssh_stdout.read()
