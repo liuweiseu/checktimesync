@@ -82,10 +82,10 @@ def GetGPSTime(port):
                 id = data[1:3]
                 if id == b'\x8f\xab':
                     gps_time = primaryTimingPacket(data[2:dataSize-2])
+                    recv_state = False
             data = b''
             dataSize = 0
             timestamp = False
-            recv_state = False
 
     ser.close()
     return gps_time, t_host
