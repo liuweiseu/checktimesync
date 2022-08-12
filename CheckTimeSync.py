@@ -2,11 +2,9 @@
 
 import time
 import serial
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 import socket
 import paramiko
-from grain import Grain
-import pytz
 import struct
 
 uart_port = '/dev/ttyUSB0'
@@ -63,6 +61,7 @@ def GetGPSTime(port):
     recv_state = True
 
     while(recv_state):
+        # get gps packets from uart port
         while bytesToRead == 0:
             bytesToRead = ser.inWaiting()
         recv_byte = ser.read(bytesToRead)
@@ -77,6 +76,7 @@ def GetGPSTime(port):
         last_recv_byte = recv_byte
         bytesToRead = 0
 
+        # deal with the data packet, if the packet ends with \x10\x03
         if data[dataSize-1:dataSize] == b'\x03' and data[dataSize-2:dataSize-1] == b'\x10':
             if data[0:1] == b'\x10':
                 id = data[1:3]
@@ -102,13 +102,13 @@ def GetQuaboTime(host_ip, port):
     server.close()
 
     t_host = time.time()
-    nanosec = struct.unpack("<I", data[10:14])
-    wr_tai = struct.unpack("<I", data[6:10])
-    wr_tai_10bits = wr_tai[0] & 0x3ff
+    nanosec = struct.unpack("<I", data[10:14])[0]
+    wr_tai = struct.unpack("<I", data[6:10])[0]
+    wr_tai_10bits = wr_tai & 0x3ff
     #covert utc to tai
     host_tai = time.time() + leap_sec
     #covert tai back to utc
-    t_quabo = (int(host_tai) & 0xFFFFFFFFFFFFFC00) + wr_tai_10bits + nanosec[0]/1000000000 -leap_sec
+    t_quabo = (int(host_tai) & 0xFFFFFFFFFFFFFC00) + wr_tai_10bits + nanosec/1000000000 -leap_sec
     
     return t_quabo, t_host
 
@@ -123,7 +123,6 @@ def SSH_Init(wrs_ip):
 
 def GetWRSTime(ssh):
     cmd0 = "/wr/bin/wr_date get"
-    #cmd1 = "date +'%T.%9N'"
 
     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd0)
     r0=ssh_stdout.read()
@@ -151,7 +150,7 @@ if __name__ == '__main__':
     t_quabo = 0
     t_host1 = 0
     wrs_time, t_host00 = GetWRSTime(ssh)
-    t_quabo, t_host1 = GetQuaboTime(host_ip, port)
+    #t_quabo, t_host1 = GetQuaboTime(host_ip, port)
     print('GPS Time'.ljust(20, ' '),':',gps_time)
     print('GPS Timestamp'.ljust(20,' '),':',t_host,'\n')
     print('Quabo Time'.ljust(20,' '),':',t_quabo)
