@@ -20,9 +20,9 @@ def SSH_Init(wrs_ip):
     ssh.connect(wrs_ip,username='root',password='')
     return ssh
 
-class panoseti_checktimesync(object):
-    def __init__(self, uart_port, host_ip, port, wrs_ip):
-        self.uart_port = uart_port
+class checktimesync(object):
+    def __init__(self, gps_port='/dev/ttyUSB0', wrs_ip='192.168.1.254', host_ip='192.168.1.100', port=60001):
+        self.gps_port = gps_port
         self.host_ip = host_ip
         self.port = port
         self.wrs_ip = wrs_ip
@@ -54,7 +54,7 @@ class panoseti_checktimesync(object):
     def get_gps_time(self):
 
         self.ser = serial.Serial(
-            port=self.uart_port,
+            port=self.gps_port,
             baudrate=9600,
             timeout=1,
             parity=serial.PARITY_NONE,
@@ -113,7 +113,11 @@ class panoseti_checktimesync(object):
         IP_PORT = (self.host_ip,self.port)
         server = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
         server.bind(IP_PORT)
-        data,client_addr = server.recvfrom(BUFFERSIZE)
+        server.settimeout(1)
+        try:
+            data,client_addr = server.recvfrom(BUFFERSIZE)
+        except:
+            raise Exception('\n No packets from Quabo!\n Please make sure the quabo is powered on and rebooted.')
         server.close()
 
         t_host = time.time()
@@ -165,32 +169,41 @@ class panoseti_checktimesync(object):
             return True
         else:
             return False
+    
+    def check_all_time(self):
+        s0 = self.check_gps_time()
+        s1 = self.check_quabo_time()
+        s2 = self.check_wrs_time()
+        if(s0 and s1 and s2):
+            return True
+        else:
+            return False
 
 if __name__ == '__main__':
-    uart_port = '/dev/ttyUSB0'
+    gps_port = '/dev/ttyUSB0'
     host_ip = '192.168.1.100'
     port = 60001
     wrs_ip = '192.168.1.254'
     print('===============================================================')
     print('Please make sure:')
-    print('1. The dev name of the GPS receiver is'.ljust(46,' '),uart_port)
+    print('1. The dev name of the GPS receiver is'.ljust(46,' '),gps_port)
     print('2. The IP address of the host computer is'.ljust(46,' '),host_ip)
     print('3. The port for quabo packets is'.ljust(46,' '),str(port))
     print('4. The IP address of WRS is'.ljust(46,' '),wrs_ip)
     print('===============================================================')
     print('Time Checking Result(UTC TIME):')
-    checksync = panoseti_checktimesync(uart_port, host_ip, port, wrs_ip)
-    t_gps,t_host = checksync.get_gps_time()
-    r0 = checksync.check_gps_time()
+    cts = checktimesync(gps_port, wrs_ip, host_ip, port)
+    t_gps,t_host = cts.get_gps_time()
+    r0 = cts.check_gps_time()
     
-    # t_quabo, t_host1 = checksync.get_quabo_time()
-    # r1 = checksync.check_quabo_time()
     t_quabo = 0
     t_host1 = 0
     r1 = True
+    t_quabo, t_host1 = cts.get_quabo_time()
+    r1 = cts.check_quabo_time()
 
-    t_wrs, t_host2 = checksync.get_wrs_time()
-    r2 = checksync.check_wrs_time()
+    t_wrs, t_host2 = cts.get_wrs_time()
+    r2 = cts.check_wrs_time()
     print('GPS Time'.ljust(20, ' '),':',t_gps)
     print('GPS Timestamp'.ljust(20,' '),':',t_host)
     print('Checking Result'.ljust(20,' '),':',r0,'\n')
